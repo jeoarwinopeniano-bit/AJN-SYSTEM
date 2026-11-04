@@ -69,10 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <span class="auth-brand-name">AJN PRINTING</span>
                     </div>
                     <p class="hero-copy">Every great print starts with the right plate. Sign in to run yours.</p>
-                    <nav class="mode-switch-buttons">
-                        <a class="toggle-btn active" href="login.php">Login</a>
-                        <a class="toggle-btn" href="register.php">Register</a>
-                    </nav>
                 </div>
                 <section class="right-form-panel">
                     <header class="form-header">

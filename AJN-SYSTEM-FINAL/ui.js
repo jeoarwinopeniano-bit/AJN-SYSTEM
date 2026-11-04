@@ -1,7 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // The hero-side Login/Register switch is redundant with the auth forms.
-  document.querySelectorAll('.mode-switch-buttons').forEach(nav => nav.remove());
-
   // Load focused modal styles without changing the existing site stylesheet.
   if (!document.querySelector('link[data-payment-fixes]')) {
     const styles = document.createElement('link');
@@ -76,10 +73,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const paymentId = document.getElementById('paymentOrderId');
     const paymentNumber = document.getElementById('paymentOrderNumber');
     const paymentTotal = document.getElementById('paymentOrderTotal');
+    const gcashPanel = paymentDialog.querySelector('#gcashQrPanel');
+    const paymentMethods = Array.from(paymentDialog.querySelectorAll('input[name="payment_method"]'));
+    const syncPaymentMethodUi = selectedMethod => {
+      if (gcashPanel) gcashPanel.hidden = selectedMethod !== 'GCash';
+      if (selectedMethod === 'PayPal' && paymentId?.value) {
+        window.location.href = 'payment.php?id=' + encodeURIComponent(paymentId.value);
+      }
+    };
     const openPayment = button => {
       if (paymentId) paymentId.value = button.dataset.orderId;
       if (paymentNumber) paymentNumber.textContent = '# ' + button.dataset.orderNumber;
       if (paymentTotal) paymentTotal.textContent = button.dataset.orderTotal;
+      const selectedMethod = paymentMethods.find(radio => radio.checked)?.value || '';
+      syncPaymentMethodUi(selectedMethod);
       paymentDialog.showModal();
     };
     document.querySelectorAll('[data-payment-open]').forEach(button => button.addEventListener('click', () => openPayment(button)));
@@ -87,15 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
     paymentDialog.addEventListener('click', event => {
       if (event.target === paymentDialog) paymentDialog.close();
     });
-
-    // Selecting PayPal starts the PayPal checkout page immediately.
-    paymentDialog.querySelectorAll('input[name="payment_method"][value="PayPal"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        if (paymentId?.value) {
-          window.location.href = 'payment.php?id=' + encodeURIComponent(paymentId.value);
-        }
-      });
-    });
+    paymentMethods.forEach(radio => radio.addEventListener('change', () => syncPaymentMethodUi(radio.value)));
+    syncPaymentMethodUi(paymentMethods.find(radio => radio.checked)?.value || '');
 
     const reopenOrderId = new URLSearchParams(window.location.search).get('pay_order');
     if (reopenOrderId) {
