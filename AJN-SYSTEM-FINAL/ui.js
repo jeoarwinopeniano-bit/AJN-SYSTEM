@@ -76,10 +76,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const paymentId = document.getElementById('paymentOrderId');
     const paymentNumber = document.getElementById('paymentOrderNumber');
     const paymentTotal = document.getElementById('paymentOrderTotal');
+    const gcashQrPanel = paymentDialog.querySelector('#gcashQrPanel');
+    const paymentMethods = Array.from(paymentDialog.querySelectorAll('input[name="payment_method"]'));
+    const updatePaymentMethodUI = () => {
+      const selectedPaymentMethod = paymentDialog.querySelector('input[name="payment_method"]:checked');
+      if (gcashQrPanel) {
+        gcashQrPanel.hidden = !selectedPaymentMethod || selectedPaymentMethod.value !== 'GCash';
+      }
+    };
     const openPayment = button => {
       if (paymentId) paymentId.value = button.dataset.orderId;
       if (paymentNumber) paymentNumber.textContent = '# ' + button.dataset.orderNumber;
       if (paymentTotal) paymentTotal.textContent = button.dataset.orderTotal;
+      updatePaymentMethodUI();
       paymentDialog.showModal();
     };
     document.querySelectorAll('[data-payment-open]').forEach(button => button.addEventListener('click', () => openPayment(button)));
@@ -88,10 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (event.target === paymentDialog) paymentDialog.close();
     });
 
-    // Selecting PayPal starts the PayPal checkout page immediately.
-    paymentDialog.querySelectorAll('input[name="payment_method"][value="PayPal"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        if (paymentId?.value) {
+    paymentMethods.forEach(method => {
+      method.addEventListener('change', () => {
+        updatePaymentMethodUI();
+        // Selecting PayPal starts the PayPal checkout page immediately.
+        if (method.value === 'PayPal' && method.checked && paymentId?.value) {
           window.location.href = 'payment.php?id=' + encodeURIComponent(paymentId.value);
         }
       });
