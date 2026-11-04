@@ -1,13 +1,14 @@
 <?php
 require_once __DIR__ . '/db.php';
 
-define('PAYPAL_MODE', 'sandbox');
-define('PAYPAL_CLIENT_ID', 'AWamig0nI2RonJfUZVopL_8xoWBldjiVvWXczhVFIqpcJDe5AanUVXoHbLcUdZExhI9pZSFReC_Bqw-M');
-define('PAYPAL_CLIENT_SECRET', 'EJmtAcgqGc27SYQiWmTZX5rDmcF95gpY495UdfKaOUhY7KIn1AMdj_Zgt7trYFcB0VmQuxR5qTFIe1hl');
+// Keep PayPal credentials out of the repository. Configure these in the server environment.
+define('PAYPAL_MODE', getenv('PAYPAL_MODE') ?: 'sandbox');
+define('PAYPAL_CLIENT_ID', getenv('PAYPAL_CLIENT_ID') ?: '');
+define('PAYPAL_CLIENT_SECRET', getenv('PAYPAL_CLIENT_SECRET') ?: '');
 
 function paypalIsConfigured(): bool
 {
-    return true; 
+    return PAYPAL_CLIENT_ID !== '' && PAYPAL_CLIENT_SECRET !== '';
 }
 
 function paypalApiBase(): string
@@ -23,27 +24,27 @@ function paypalApiRequest(string $method, string $path, ?array $payload = null):
         throw new RuntimeException('PayPal credentials have not been configured.');
     }
     if (!function_exists('curl_init')) {
-        throw new RuntimeException('PHP cURL is not enabled. Enable the cURL extension in XAMPP and restart Apache.');
+        throw new RuntimeException('PHP cURL is not enabled. Enable the cURL extension and restart the web server.');
     }
 
     $curl = curl_init(paypalApiBase() . '/v1/oauth2/token');
     curl_setopt_array($curl, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
-        CURLOPT_USERPWD => trim((string) PAYPAL_CLIENT_ID) . ':' . trim((string) PAYPAL_CLIENT_SECRET),
+        CURLOPT_USERPWD => PAYPAL_CLIENT_ID . ':' . PAYPAL_CLIENT_SECRET,
         CURLOPT_HTTPHEADER => ['Accept: application/json', 'Accept-Language: en_US'],
         CURLOPT_POSTFIELDS => 'grant_type=client_credentials',
         CURLOPT_TIMEOUT => 25,
     ]);
     $tokenBody = curl_exec($curl);
-    $tokenStatus = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+    $tokenStatus = (int)curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
     $tokenError = curl_error($curl);
     curl_close($curl);
 
     $tokenData = is_string($tokenBody) ? json_decode($tokenBody, true) : null;
     if ($tokenError || $tokenStatus < 200 || $tokenStatus >= 300 || empty($tokenData['access_token'])) {
         error_log('PayPal OAuth token request failed. HTTP ' . $tokenStatus . ' ' . $tokenError);
-        throw new RuntimeException('PayPal could not connect. Check that the sandbox Client ID and Secret match.');
+        throw new RuntimeException('PayPal could not connect. Check the server-side PayPal credentials.');
     }
 
     $headers = [
@@ -63,7 +64,7 @@ function paypalApiRequest(string $method, string $path, ?array $payload = null):
     }
 
     $body = curl_exec($curl);
-    $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+    $status = (int)curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
     $error = curl_error($curl);
     curl_close($curl);
 
@@ -122,7 +123,7 @@ if ($action === 'create' || $action === 'capture') {
         paymentJson(['error' => 'Your checkout session expired. Reload the page and try again.'], 403);
     }
     if (!paypalIsConfigured()) {
-        paymentJson(['error' => 'PayPal is not configured yet. Add your PayPal API credentials and try again.'], 503);
+        paymentJson(['error' => 'PayPal is not configured. Configure the PayPal environment variables and try again.'], 503);
     }
 
     $orderId = (int)($payload['order_id'] ?? 0);
@@ -192,9 +193,14 @@ try {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $method = (string)($_POST['payment_method'] ?? '');
+    if ($method === 'PayPal') {
+        header('Location: payment.php?id=' . rawurlencode((string)$orderId));
+        exit;
+    }
+
     $proof = null;
     if (!in_array($method, ['GCash', 'Cash'], true)) {
-        $error = 'Select GCash or Cash here. To pay with PayPal, use the PayPal button.';
+        $error = 'Choose a valid payment method.';
     } else {
         $file = $_FILES['payment_proof'] ?? null;
         if ($file && $file['error'] !== UPLOAD_ERR_NO_FILE && $file['error'] !== UPLOAD_ERR_OK) {
@@ -251,7 +257,7 @@ $clientId = paypalIsConfigured() ? PAYPAL_CLIENT_ID : '';
             </div>
             <?php if ($error !== ''): ?><div class="alert-box warning"><?= htmlspecialchars($error) ?></div><?php endif; ?>
             <?php if ($clientId === ''): ?>
-                <div class="alert-box warning">PayPal credentials are missing. Add your Sandbox Client ID and Secret in the PayPal settings at the top of this payment.php file.</div>
+                <div class="alert-box warning">PayPal is not configured. Please contact the shop administrator.</div>
             <?php else: ?>
                 <p class="payment-note">Pay securely through PayPal. Your order is marked paid only after PayPal confirms the payment.</p>
                 <div id="paypal-button-container"></div>
