@@ -1,4 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // The hero-side Login/Register switch is redundant with the auth forms.
+  document.querySelectorAll('.mode-switch-buttons').forEach(nav => nav.remove());
+
+  // Load focused modal styles without changing the existing site stylesheet.
+  if (!document.querySelector('link[data-payment-fixes]')) {
+    const styles = document.createElement('link');
+    styles.rel = 'stylesheet';
+    styles.href = 'css/payment-fixes.css';
+    styles.dataset.paymentFixes = 'true';
+    document.head.appendChild(styles);
+  }
+
   document.querySelectorAll('.notification-wrap').forEach(wrap => {
     const bell = wrap.querySelector('.notification-bell');
     const panel = wrap.querySelector('.notification-panel');
@@ -26,8 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
   document.querySelectorAll('.sidebar-toggle').forEach(toggle => {
     const sidebar = toggle.closest('.sidebar');
+    if (!sidebar) return;
     const setOpen = open => {
       sidebar.classList.toggle('is-open', open);
       toggle.setAttribute('aria-expanded', String(open));
@@ -42,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!sidebar.contains(event.target)) setOpen(false);
     });
   });
-  document.querySelectorAll('a[href=\"logout.php\"]').forEach(link => {
+
+  document.querySelectorAll('a[href="logout.php"]').forEach(link => {
     link.addEventListener('click', event => {
       if (!window.confirm('Are you sure you want to log out?')) event.preventDefault();
     });
@@ -62,9 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const paymentNumber = document.getElementById('paymentOrderNumber');
     const paymentTotal = document.getElementById('paymentOrderTotal');
     const openPayment = button => {
-      paymentId.value = button.dataset.orderId;
-      paymentNumber.textContent = '# ' + button.dataset.orderNumber;
-      paymentTotal.textContent = button.dataset.orderTotal;
+      if (paymentId) paymentId.value = button.dataset.orderId;
+      if (paymentNumber) paymentNumber.textContent = '# ' + button.dataset.orderNumber;
+      if (paymentTotal) paymentTotal.textContent = button.dataset.orderTotal;
       paymentDialog.showModal();
     };
     document.querySelectorAll('[data-payment-open]').forEach(button => button.addEventListener('click', () => openPayment(button)));
@@ -72,6 +87,16 @@ document.addEventListener('DOMContentLoaded', () => {
     paymentDialog.addEventListener('click', event => {
       if (event.target === paymentDialog) paymentDialog.close();
     });
+
+    // Selecting PayPal starts the PayPal checkout page immediately.
+    paymentDialog.querySelectorAll('input[name="payment_method"][value="PayPal"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (paymentId?.value) {
+          window.location.href = 'payment.php?id=' + encodeURIComponent(paymentId.value);
+        }
+      });
+    });
+
     const reopenOrderId = new URLSearchParams(window.location.search).get('pay_order');
     if (reopenOrderId) {
       const reopenButton = document.querySelector(`[data-payment-open][data-order-id="${reopenOrderId}"]`);
@@ -82,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const detailsDialog = document.createElement('dialog');
   detailsDialog.className = 'order-details-dialog';
   detailsDialog.setAttribute('aria-labelledby', 'orderDetailsTitle');
-  detailsDialog.innerHTML = '<button type="button" class="dialog-close" aria-label="Close order details">×</button><h2 id="orderDetailsTitle"></h2><dl><dt>Order ID</dt><dd data-detail="number"></dd><dt>Date</dt><dd data-detail="date"></dd><dt>Customer</dt><dd data-detail="customer"></dd><dt>Shirt Style</dt><dd data-detail="style"></dd><dt>Sizes</dt><dd data-detail="sizes"></dd><dt>Total Amount</dt><dd data-detail="total"></dd><dt>Order Status</dt><dd data-detail="status"></dd><dt>Payment Status</dt><dd data-detail="payment"></dd></dl><div class="order-details-actions"><a class="submit-btn" data-detail-url>Open full details</a><a class="secondary-btn" data-edit-url hidden>Edit Order</a></div>';
+  detailsDialog.innerHTML = '<button type="button" class="dialog-close" aria-label="Close order details">×</button><h2 id="orderDetailsTitle"></h2><dl><dt>Order ID</dt><dd data-detail="number"></dd><dt>Date</dt><dd data-detail="date"></dd><dt>Customer</dt><dd data-detail="customer"></dd><dt>Style</dt><dd data-detail="style"></dd><dt>Sizes</dt><dd data-detail="sizes"></dd><dt>Total</dt><dd data-detail="total"></dd><dt>Status</dt><dd data-detail="status"></dd><dt>Payment</dt><dd data-detail="payment"></dd></dl><div class="order-details-actions"><a class="secondary-btn" data-detail-url href="#">View full details</a><a class="submit-btn" data-edit-url href="#" hidden>Edit order</a></div>';
   document.body.appendChild(detailsDialog);
   detailsDialog.querySelector('.dialog-close').addEventListener('click', () => detailsDialog.close());
   detailsDialog.addEventListener('click', event => {
